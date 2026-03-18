@@ -161,7 +161,9 @@ BEGIN
     SELECT organization_id INTO parent_org_id FROM activities WHERE id = NEW.activity_id;
   END IF;
 
-  IF parent_org_id IS NOT NULL AND NEW.organization_id != parent_org_id THEN
+  IF parent_org_id IS NULL THEN
+    RAISE EXCEPTION 'Security Exception: Parent record not found or access denied across tenant boundary.';
+  ELSIF NEW.organization_id != parent_org_id THEN
     RAISE EXCEPTION 'Tenant mismatch: child organization % does not match parent organization %', NEW.organization_id, parent_org_id;
   END IF;
 

@@ -10,11 +10,11 @@ export default async function DashboardPage() {
     redirect('/login')
   }
 
-  // Fetch the user's organization and role directly via RLS and DB
   const { data: membership } = await supabase
     .from('memberships')
     .select('role, organizations(name)')
     .eq('user_id', user.id)
+    .limit(1)
     .single()
 
   if (!membership) {
