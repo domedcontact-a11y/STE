@@ -27,7 +27,7 @@ export default function LoginPage({ searchParams }: { searchParams: { error?: st
             </div>
         )}
 
-        <form className="flex flex-col gap-4">
+        <form action={login} className="flex flex-col gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700" htmlFor="email">Email</label>
             <input 
@@ -52,7 +52,7 @@ export default function LoginPage({ searchParams }: { searchParams: { error?: st
 
           <div className="flex gap-4 mt-4">
             <button 
-              formAction={login} 
+              type="submit"
               className="flex-1 bg-blue-600 text-white rounded-md px-4 py-2 hover:bg-blue-700 transition"
             >
               Sign In
