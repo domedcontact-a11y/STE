@@ -1,5 +1,3 @@
-'use client'
-
 import { createOrganization } from './actions'
 
 export default function SetupOrganizationPage({ searchParams }: { searchParams: { error?: string } }) {
