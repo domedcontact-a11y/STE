@@ -1,7 +1,7 @@
-import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import Link from 'next/link'
 import QuickActions from '@/components/QuickActions'
+import RedirectToLogin from '@/components/RedirectToLogin'
 
 export default async function DashboardLayout({
   children,
@@ -13,8 +13,9 @@ export default async function DashboardLayout({
   // Basic layout level auth verification
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
-    redirect('/login')
+    return <RedirectToLogin />
   }
+
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">

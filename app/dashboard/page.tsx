@@ -74,6 +74,7 @@ export default async function DashboardPage() {
   return (
     <div className="py-8 space-y-8">
       {/* Header */}
+      <div id="dashboard-debug-marker" className="hidden">LOADED_DASHBOARD_PAGE</div>
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-gray-900">
           Welcome back to {orgName || 'your workspace'}!
