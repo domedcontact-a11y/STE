@@ -1,33 +1,28 @@
-'use client'
-
-import { useActionState } from 'react'
 import { login, signup } from '../actions'
 
-const initialState = {
-  error: null,
-  success: null
+export const metadata = {
+  title: 'Login | CM App'
 }
 
 export default function LoginPage({ searchParams }: { searchParams: { error?: string, success?: string } }) {
-  // Simple state management for the form actions (Next 14 style)
-  // We'll wrap our server actions in a standard arrow function to handle client side state
   return (
     <div className="flex h-screen items-center justify-center bg-gray-50">
-      <div className="w-full max-w-md p-8 bg-white rounded-lg shadow-md">
+      <div className="w-full max-w-md p-8 bg-white rounded-lg shadow-md border border-gray-100">
         <h1 className="text-2xl font-bold text-center text-gray-900 mb-6">Welcome to CM App</h1>
         
         {searchParams?.error && (
-            <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md text-sm text-center">
+            <div className="mb-4 p-3 bg-red-100 border border-red-200 text-red-700 rounded-md text-sm text-center">
               {searchParams.error}
             </div>
         )}
         {searchParams?.success && (
-            <div className="mb-4 p-3 bg-green-100 text-green-700 rounded-md text-sm text-center">
+            <div className="mb-4 p-3 bg-green-100 border border-green-200 text-green-700 rounded-md text-sm text-center">
               {searchParams.success}
             </div>
         )}
 
-        <form action={login} className="flex flex-col gap-4">
+        {/* Bind native Server Actions explicitly */}
+        <form className="flex flex-col gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700" htmlFor="email">Email</label>
             <input 
@@ -52,13 +47,13 @@ export default function LoginPage({ searchParams }: { searchParams: { error?: st
 
           <div className="flex gap-4 mt-4">
             <button 
-              type="submit"
+              formAction={login}
               className="flex-1 bg-blue-600 text-white rounded-md px-4 py-2 hover:bg-blue-700 transition"
             >
               Sign In
             </button>
             <button 
-              formAction={signup} 
+              formAction={signup}
               className="flex-1 bg-white text-blue-600 border border-blue-600 rounded-md px-4 py-2 hover:bg-blue-50 transition"
             >
               Sign Up
