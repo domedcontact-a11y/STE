@@ -18,8 +18,27 @@ export async function login(formData: FormData) {
     redirect(`/login?error=${encodeURIComponent(error.message)}`)
   }
 
-  revalidatePath('/', 'layout')
-  redirect('/dashboard')
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (user) {
+    const { data: membership } = await supabase
+      .from('organization_members')
+      .select('organization_id')
+      .eq('user_id', user.id)
+      .limit(1)
+      .single()
+
+    revalidatePath('/', 'layout')
+
+    if (!membership) {
+      redirect('/setup-organization')
+    } else {
+      redirect('/dashboard')
+    }
+  }
+
+  // Fallback (should not reach here if no error)
+  redirect('/login')
 }
 
 export async function signup(formData: FormData) {

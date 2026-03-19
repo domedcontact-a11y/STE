@@ -20,7 +20,7 @@ BEGIN
   RETURNING id INTO new_org_id;
 
   -- 2. Insert the owner membership
-  INSERT INTO memberships (user_id, organization_id, role)
+  INSERT INTO organization_members (user_id, organization_id, role)
   VALUES (current_user_id, new_org_id, 'owner');
 
   RETURN new_org_id;

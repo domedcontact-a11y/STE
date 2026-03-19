@@ -56,9 +56,9 @@ export async function createProject(name: string) {
     throw new Error('Unauthorized: Authentication required.')
   }
 
-  // 2. Fetch the user's primary organization from memberships
+  // 2. Fetch the user's primary organization from organization_members
   const { data: membership, error: memberError } = await supabase
-    .from('memberships')
+    .from('organization_members')
     .select('organization_id')
     .eq('user_id', user.id)
     .limit(1)

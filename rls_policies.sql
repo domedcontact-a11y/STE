@@ -24,7 +24,7 @@ END $$;
 
 -- 2. Enable RLS
 ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE memberships ENABLE ROW LEVEL SECURITY;
+ALTER TABLE organization_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE drawings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE assemblies ENABLE ROW LEVEL SECURITY;
@@ -36,7 +36,7 @@ ALTER TABLE resources ENABLE ROW LEVEL SECURITY;
 CREATE OR REPLACE FUNCTION get_my_orgs()
 RETURNS SETOF UUID AS $$
 BEGIN
-  RETURN QUERY SELECT organization_id FROM memberships WHERE user_id = auth.uid();
+  RETURN QUERY SELECT organization_id FROM organization_members WHERE user_id = auth.uid();
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -45,7 +45,7 @@ RETURNS TEXT AS $$
 DECLARE
   role_name TEXT;
 BEGIN
-  SELECT role INTO role_name FROM memberships WHERE user_id = auth.uid() AND organization_id = org_id;
+  SELECT role INTO role_name FROM organization_members WHERE user_id = auth.uid() AND organization_id = org_id;
   RETURN COALESCE(role_name, 'viewer');
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -65,18 +65,18 @@ BEGIN
 END $$;
 
 DROP POLICY IF EXISTS "Users can see their organizations" ON organizations;
-DROP POLICY IF EXISTS "Users can see their own memberships" ON memberships;
-DROP POLICY IF EXISTS "Owners/Admins can see all members" ON memberships;
-DROP POLICY IF EXISTS "Owners/Admins/Managers can manage members" ON memberships;
+DROP POLICY IF EXISTS "Users can see their own memberships" ON organization_members;
+DROP POLICY IF EXISTS "Owners/Admins can see all members" ON organization_members;
+DROP POLICY IF EXISTS "Owners/Admins/Managers can manage members" ON organization_members;
 
 -- 5. Organization & Membership Policies
 CREATE POLICY "Users can see their organizations" ON organizations FOR SELECT USING (id IN (SELECT get_my_orgs()));
 
-CREATE POLICY "Users can see their own memberships" ON memberships FOR SELECT USING (user_id = auth.uid());
-CREATE POLICY "Owners/Admins can see all members" ON memberships FOR SELECT USING (organization_id IN (SELECT get_my_orgs()));
+CREATE POLICY "Users can see their own memberships" ON organization_members FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "Owners/Admins can see all members" ON organization_members FOR SELECT USING (organization_id IN (SELECT get_my_orgs()));
 
 -- Managers, Admins, Owners can manage memberships
-CREATE POLICY "Owners/Admins/Managers can manage members" ON memberships FOR ALL USING (
+CREATE POLICY "Owners/Admins/Managers can manage members" ON organization_members FOR ALL USING (
   get_my_role(organization_id) IN ('owner', 'admin', 'manager')
 );
 
