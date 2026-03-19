@@ -2,19 +2,20 @@
 
 -- 1. Setup Enums and Missing Columns
 DO $$ BEGIN
-    CREATE TYPE activity_category AS ENUM ('fabrication', 'delivery', 'erection', 'inspection');
+    CREATE TYPE activity_type AS ENUM ('fabrication', 'delivery', 'erection', 'inspection');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='activities' AND column_name='category') THEN
-        ALTER TABLE activities ADD COLUMN category activity_category DEFAULT 'fabrication' NOT NULL;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='activities' AND column_name='type') THEN
+        ALTER TABLE activities ADD COLUMN type activity_type DEFAULT 'fabrication' NOT NULL;
     END IF;
 END $$;
 
 -- Ensure all tables have organization_id
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='projects' AND column_name='organization_id') THEN ALTER TABLE projects ADD COLUMN organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE; END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='subcontractors' AND column_name='organization_id') THEN ALTER TABLE subcontractors ADD COLUMN organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE; END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='drawings' AND column_name='organization_id') THEN ALTER TABLE drawings ADD COLUMN organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE; END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='assemblies' AND column_name='organization_id') THEN ALTER TABLE assemblies ADD COLUMN organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE; END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='elements' AND column_name='organization_id') THEN ALTER TABLE elements ADD COLUMN organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE; END IF;
@@ -55,7 +56,7 @@ DO $$
 DECLARE 
   t text; 
 BEGIN 
-  FOR t IN SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('projects', 'drawings', 'assemblies', 'elements', 'activities', 'resources')
+  FOR t IN SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('projects', 'subcontractors', 'drawings', 'assemblies', 'elements', 'activities', 'resources')
   LOOP 
     EXECUTE format('DROP POLICY IF EXISTS "Tenant Select" ON %I;', t);
     EXECUTE format('DROP POLICY IF EXISTS "Tenant Insert" ON %I;', t);
@@ -80,11 +81,11 @@ CREATE POLICY "Owners/Admins/Managers can manage members" ON organization_member
   get_my_role(organization_id) IN ('owner', 'admin', 'manager')
 );
 
--- 6. Generic Construction Data Policies (Projects, Drawings, Assemblies, Elements, Resources)
+-- 6. Generic Construction Data Policies (Projects, Subcontractors, Drawings, Assemblies, Elements, Resources)
 DO $$
 DECLARE
   table_name_var TEXT;
-  tables_list TEXT[] := ARRAY['projects', 'drawings', 'assemblies', 'elements', 'resources'];
+  tables_list TEXT[] := ARRAY['projects', 'subcontractors', 'drawings', 'assemblies', 'elements', 'resources'];
 BEGIN
   FOREACH table_name_var IN ARRAY tables_list LOOP
     -- SELECT: All members can read (Viewer and up)
@@ -97,16 +98,16 @@ BEGIN
   END LOOP;
 END $$;
 
--- 7. Specialized Policies for Activities (Category-based)
+-- 7. Specialized Policies for Activities (Type-based)
 CREATE POLICY "Tenant Select" ON activities FOR SELECT USING (organization_id IN (SELECT get_my_orgs()));
 CREATE POLICY "Tenant Insert" ON activities FOR INSERT WITH CHECK (get_my_role(organization_id) IN ('owner', 'admin', 'manager'));
 CREATE POLICY "Tenant Delete" ON activities FOR DELETE USING (get_my_role(organization_id) IN ('owner', 'admin', 'manager'));
 
 CREATE POLICY "Tenant Update" ON activities FOR UPDATE USING (
   get_my_role(organization_id) IN ('owner', 'admin', 'manager')
-  OR (get_my_role(organization_id) = 'supervisor_shop' AND category = 'fabrication')
-  OR (get_my_role(organization_id) = 'supervisor_construction' AND category IN ('delivery', 'erection'))
-  OR (get_my_role(organization_id) = 'inspector_quality' AND category = 'inspection')
+  OR (get_my_role(organization_id) = 'supervisor_shop' AND type = 'fabrication')
+  OR (get_my_role(organization_id) = 'supervisor_construction' AND type IN ('delivery', 'erection'))
+  OR (get_my_role(organization_id) = 'inspector_quality' AND type = 'inspection')
 );
 
 -- 8. Column-Level Protection Trigger for Activities
@@ -124,7 +125,7 @@ BEGIN
        NEW.element_id != OLD.element_id OR 
        NEW.organization_id != OLD.organization_id OR 
        NEW.name != OLD.name OR 
-       NEW.category != OLD.category OR 
+       NEW.type != OLD.type OR 
        NEW.planned_start IS DISTINCT FROM OLD.planned_start OR 
        NEW.planned_end IS DISTINCT FROM OLD.planned_end 
     THEN
@@ -143,28 +144,38 @@ CREATE TRIGGER enforce_activity_columns
   EXECUTE FUNCTION protect_activity_columns();
   
 -- 9. Tenant Integrity Triggers
--- Ensures that children cannot be created in a different organization than their parent
+-- Ensures that children cannot be created in a different organization (or subcontractor tree) than their parent
 CREATE OR REPLACE FUNCTION validate_tenant_integrity()
 RETURNS TRIGGER AS $$
 DECLARE
   parent_org_id UUID;
+  parent_sub_id UUID;
 BEGIN
-  IF TG_TABLE_NAME = 'drawings' THEN
+  IF TG_TABLE_NAME = 'subcontractors' THEN
     SELECT organization_id INTO parent_org_id FROM projects WHERE id = NEW.project_id;
+  ELSIF TG_TABLE_NAME = 'drawings' THEN
+    SELECT organization_id INTO parent_org_id FROM subcontractors WHERE id = NEW.subcontractor_id;
   ELSIF TG_TABLE_NAME = 'assemblies' THEN
-    SELECT organization_id INTO parent_org_id FROM drawings WHERE id = NEW.drawing_id;
+    SELECT organization_id, subcontractor_id INTO parent_org_id, parent_sub_id FROM drawings WHERE id = NEW.drawing_id;
   ELSIF TG_TABLE_NAME = 'elements' THEN
-    SELECT organization_id INTO parent_org_id FROM assemblies WHERE id = NEW.assembly_id;
+    SELECT organization_id, subcontractor_id INTO parent_org_id, parent_sub_id FROM assemblies WHERE id = NEW.assembly_id;
   ELSIF TG_TABLE_NAME = 'activities' THEN
-    SELECT organization_id INTO parent_org_id FROM elements WHERE id = NEW.element_id;
+    SELECT organization_id, subcontractor_id INTO parent_org_id, parent_sub_id FROM elements WHERE id = NEW.element_id;
   ELSIF TG_TABLE_NAME = 'resources' THEN
-    SELECT organization_id INTO parent_org_id FROM activities WHERE id = NEW.activity_id;
+    SELECT organization_id, subcontractor_id INTO parent_org_id, parent_sub_id FROM activities WHERE id = NEW.activity_id;
   END IF;
 
   IF parent_org_id IS NULL THEN
     RAISE EXCEPTION 'Security Exception: Parent record not found or access denied across tenant boundary.';
   ELSIF NEW.organization_id != parent_org_id THEN
     RAISE EXCEPTION 'Tenant mismatch: child organization % does not match parent organization %', NEW.organization_id, parent_org_id;
+  END IF;
+
+  -- Validate subcontractor integrity downwards (Drawings intrinsically set the Subcontractor branch)
+  IF TG_TABLE_NAME IN ('assemblies', 'elements', 'activities', 'resources') THEN
+    IF parent_sub_id IS NULL OR NEW.subcontractor_id != parent_sub_id THEN
+      RAISE EXCEPTION 'Subcontractor mismatch: child subcontractor % does not match parent subcontractor %', NEW.subcontractor_id, parent_sub_id;
+    END IF;
   END IF;
 
   RETURN NEW;
@@ -177,7 +188,7 @@ DECLARE
   t text;
 BEGIN
   FOR t IN SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' 
-    AND table_name IN ('drawings', 'assemblies', 'elements', 'activities', 'resources')
+    AND table_name IN ('subcontractors', 'drawings', 'assemblies', 'elements', 'activities', 'resources')
   LOOP
     EXECUTE format('DROP TRIGGER IF EXISTS trigger_validate_tenant ON %I', t);
     EXECUTE format('CREATE TRIGGER trigger_validate_tenant BEFORE INSERT OR UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION validate_tenant_integrity();', t);

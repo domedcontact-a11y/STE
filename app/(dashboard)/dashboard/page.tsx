@@ -45,7 +45,7 @@ export default async function DashboardPage() {
     .select(`
       id,
       name,
-      category,
+      type,
       status,
       updated_at,
       elements(mark)
@@ -103,7 +103,7 @@ export default async function DashboardPage() {
                       </p>
                       <div className="ml-2 flex flex-shrink-0">
                         <p className="inline-flex rounded-full bg-blue-50 px-2 text-xs font-semibold leading-5 text-blue-700 uppercase tracking-wide">
-                          {activity.category}
+                          {activity.type}
                         </p>
                       </div>
                     </div>

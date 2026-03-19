@@ -18,26 +18,13 @@ export async function login(formData: FormData) {
     redirect(`/login?error=${encodeURIComponent(error.message)}`)
   }
 
-  const user = authData?.user
-
-  if (user) {
-    const { data: membership } = await supabase
-      .from('organization_members')
-      .select('organization_id')
-      .eq('user_id', user.id)
-      .limit(1)
-      .single()
-
+  if (authData?.user) {
+    // Organizations are securely provisioned natively via PostgreSQL Trigger on signup.
+    // Redirection falls natively directly to the dashboard.
     revalidatePath('/', 'layout')
-
-    if (!membership) {
-      redirect('/setup-organization')
-    } else {
-      redirect('/dashboard')
-    }
+    redirect('/dashboard')
   }
 
-  // Fallback (should not reach here if no error)
   redirect('/login')
 }
 
@@ -49,11 +36,17 @@ export async function signup(formData: FormData) {
     password: formData.get('password') as string,
   }
 
-  const { error } = await supabase.auth.signUp(data)
+  const { data: authData, error } = await supabase.auth.signUp(data)
 
   if (error) {
     redirect(`/login?error=${encodeURIComponent(error.message)}`)
   }
 
-  redirect(`/login?success=${encodeURIComponent('Check your email for the confirmation link.')}`)
+  // If email confirmations are disabled or auto-confirmed, route instantly to Dashboard.
+  if (authData?.session) {
+    revalidatePath('/', 'layout')
+    redirect('/dashboard')
+  }
+
+  redirect(`/login?success=${encodeURIComponent('Account created successfully! Please check your email inbox to verify.')}`)
 }
