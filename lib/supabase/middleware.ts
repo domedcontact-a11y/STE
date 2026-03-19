@@ -44,6 +44,8 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(loginUrl)
   }
 
+
+
   // 2. Authenticated user on a public/auth route → send them straight to dashboard
   if (user && (pathname.startsWith('/login') || pathname === '/')) {
     const dashUrl = new URL('/dashboard', request.url)
