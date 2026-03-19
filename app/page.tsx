@@ -176,7 +176,7 @@ export default function Home() {
                 <span className="text-xl font-bold">STE App</span>
               </div>
               <p className="max-w-xs text-slate-600 dark:text-slate-400 text-sm leading-relaxed">
-                The world's most advanced platform for steel structure construction management.
+                The world&apos;s most advanced platform for steel structure construction management.
               </p>
             </div>
             <div>
@@ -223,4 +223,6 @@ function WorkflowStep({ icon, title, desc, color }: { icon: React.ReactNode, tit
     </div>
   )
 }
+
+
 

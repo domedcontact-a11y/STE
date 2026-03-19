@@ -13,16 +13,34 @@ export default async function DashboardPage() {
     redirect('/login')
   }
 
-  const { data: membership } = await supabase
+  let { data: membership } = await supabase
     .from('organization_members')
-    .select('role, organization_id, organizations(name)') // Added organization_id to select
+    .select('role, organization_id, organizations(name)')
     .eq('user_id', user.id)
-    .limit(1)
     .single()
+
+  // Fallback: If no membership exists, try to auto-provision one (to avoid "Setup" screen)
+  if (!membership) {
+    const orgName = user.email?.split('@')[0] || 'My Organization'
+    const { data: orgId, error: provisionError } = await supabase.rpc('create_new_organization', {
+      org_name: `${orgName}'s Org`
+    })
+
+    if (!provisionError && orgId) {
+      // Re-fetch membership since it's now created
+      const { data: newMembership } = await supabase
+        .from('organization_members')
+        .select('role, organization_id, organizations(name)')
+        .eq('user_id', user.id)
+        .single()
+      membership = newMembership
+    }
+  }
 
   if (!membership) {
     redirect('/setup-organization')
   }
+
 
   const orgName = Array.isArray(membership.organizations)
     ? membership.organizations[0]?.name
