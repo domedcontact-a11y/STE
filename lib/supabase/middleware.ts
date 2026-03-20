@@ -18,14 +18,18 @@ export async function updateSession(request: NextRequest) {
         },
         setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          response = NextResponse.next({ request: { headers: request.headers } })
+          response = NextResponse.next({
+            request,
+          })
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
           )
         },
+
       },
     }
   )
+
 
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -40,9 +44,14 @@ export async function updateSession(request: NextRequest) {
 
   // 1. Unauthenticated on a protected route → send to login
   if (!user && pathname.startsWith('/dashboard')) {
+    console.log('[Middleware] Unauthenticated on /dashboard -> redirecting to /login')
     const loginUrl = new URL('/login', request.url)
     return NextResponse.redirect(loginUrl)
   }
+
+
+
+
 
 
 

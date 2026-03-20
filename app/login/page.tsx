@@ -5,6 +5,7 @@ export const metadata = {
 }
 
 export default function LoginPage({ searchParams }: { searchParams: { error?: string, success?: string } }) {
+  console.log('[LoginPage] Rendering with params:', searchParams)
   return (
     <div className="flex h-screen items-center justify-center bg-gray-50">
       <div className="w-full max-w-md p-8 bg-white rounded-lg shadow-md border border-gray-100">
