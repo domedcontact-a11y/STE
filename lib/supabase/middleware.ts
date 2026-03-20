@@ -26,15 +26,11 @@ export async function updateSession(request: NextRequest) {
         getAll() {
           return request.cookies.getAll()
         },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          // Whenever cookies are updated, we must recreate the next response
-          supabaseResponse = NextResponse.next({
-            request,
-          })
-          cookiesToSet.forEach(({ name, value, options }) =>
+        setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+          // Explicitly stripping `request.cookies.set` as requested
+          cookiesToSet.forEach(({ name, value, options }) => {
             supabaseResponse.cookies.set(name, value, options)
-          )
+          })
         },
       },
     }
