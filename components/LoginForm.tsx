@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { getSupabaseBrowserClient } from '@/lib/supabase/client'
 import { Loader2 } from 'lucide-react'
 
 export default function LoginForm({ 
@@ -18,7 +18,7 @@ export default function LoginForm({
   const [success, setSuccess] = useState(initialSuccess || '')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = getSupabaseBrowserClient()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -41,8 +41,9 @@ export default function LoginForm({
 
     if (data.session) {
       console.log('[LoginForm] Login success! Session established. Redirecting...')
-      router.refresh() // Force Next.js to re-evaluate server components with new cookie
-      router.push('/dashboard')
+      // Phase 3 Hardening: Hard redirect bypasses Next.js client router cache completely
+      // ensuring the Middleware receives a fresh request with the newly minted cookies.
+      window.location.href = '/dashboard'
     }
   }
 
@@ -70,8 +71,7 @@ export default function LoginForm({
     }
 
     if (data.session) {
-      router.refresh()
-      router.push('/dashboard')
+      window.location.href = '/dashboard'
     } else {
       setSuccess('Account created! Please check your email to verify.')
       setLoading(false)

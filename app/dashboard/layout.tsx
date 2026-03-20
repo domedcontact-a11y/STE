@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 import RedirectToLogin from '@/components/RedirectToLogin'
 import DashboardShell from '@/components/dashboard/DashboardShell'
 
@@ -10,31 +11,35 @@ export default async function DashboardLayout({
   const supabase = createClient()
   
   try {
-    // 1. Core Auth Check ONLY
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    let activeUser = user
+    // Component Fallback Authentication (Master Prompt Step 6)
+    const { data: { session } } = await supabase.auth.getSession()
+    const { data: { user } } = await supabase.auth.getUser()
 
-    // --- PHASE 3 HARDENING: getSession Fallback ---
-    if (authError || !activeUser) {
-      console.warn('[Layout] [/dashboard] getUser() failed. Attempting getSession() fallback...')
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
-      
-      if (sessionData?.session?.user) {
-        console.log('[Layout] [/dashboard] getSession() rescued the user context:', sessionData.session.user.email)
-        activeUser = sessionData.session.user
-      } else {
-        console.error('[Layout] [/dashboard] Both getUser() and getSession() failed. Redirecting.', sessionError?.message || 'No Session')
-        return <RedirectToLogin />
-      }
+    if (!session || !user) {
+      redirect('/login')
     }
 
-    // 2. Static Shell for Test Mode
+    // --- Organization Context Resolution ---
+    const { data: memberships } = await supabase
+      .from('organization_members')
+      .select('organization:organizations(id, name, slug)')
+      .eq('user_id', user.id)
+
+    // Map through the foreign-key joined data safely
+    const organizations = (memberships || [])
+      .map(m => m.organization)
+      .flat()
+      .filter(Boolean) as any[]
+    
+    // Select the first organization as the active context (defaulting to empty if none exist)
+    const currentOrgId = organizations.length > 0 ? organizations[0].id : ""
+
+    // 2. Interactive Shell
     return (
       <DashboardShell 
-        user={activeUser} 
-        organizations={[]} 
-        currentOrgId=""
+        user={user} 
+        organizations={organizations} 
+        currentOrgId={currentOrgId}
       >
         {children}
       </DashboardShell>
