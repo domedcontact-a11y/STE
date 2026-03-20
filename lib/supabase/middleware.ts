@@ -31,9 +31,24 @@ export async function updateSession(request: NextRequest) {
   )
 
 
-  const { data: { user } } = await supabase.auth.getUser()
+  // --- PHASE 3 HARDENING: Primary Auth Check ---
+  let { data: { user }, error: authError } = await supabase.auth.getUser()
+
+  // --- PHASE 3 HARDENING: getSession Fallback ---
+  if (authError || !user) {
+    console.warn(`[Middleware] [${request.nextUrl.pathname}] getUser() failed. Attempting getSession()...`)
+    const { data: sessionData } = await supabase.auth.getSession()
+    if (sessionData?.session?.user) {
+      console.log(`[Middleware] [${request.nextUrl.pathname}] getSession() RESCUED THE USER!`)
+      user = sessionData.session.user
+    }
+  }
 
   const { pathname } = request.nextUrl
+
+  console.log(`[Middleware] [${pathname}] Cookies:`, request.cookies.getAll().map(c => c.name).join(', '))
+  console.log(`[Middleware] [${pathname}] User ID:`, user?.id || 'NONE')
+  if (authError && !user) console.error(`[Middleware] [${pathname}] Final Auth Error:`, authError.message)
 
   // Always allow these routes through without any auth checks
   const isPublicRoute =
@@ -44,7 +59,7 @@ export async function updateSession(request: NextRequest) {
 
   // 1. Unauthenticated on a protected route → send to login
   if (!user && pathname.startsWith('/dashboard')) {
-    console.log('[Middleware] Unauthenticated on /dashboard -> redirecting to /login')
+    console.warn(`[Middleware] [${pathname}] REDIRECT -> /login (No Session)`)
     const loginUrl = new URL('/login', request.url)
     return NextResponse.redirect(loginUrl)
   }

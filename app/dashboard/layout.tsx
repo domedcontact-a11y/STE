@@ -13,15 +13,26 @@ export default async function DashboardLayout({
     // 1. Core Auth Check ONLY
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     
-    if (authError || !user) {
-      console.log('[DashboardLayout] Auth check failed, redirecting.')
-      return <RedirectToLogin />
+    let activeUser = user
+
+    // --- PHASE 3 HARDENING: getSession Fallback ---
+    if (authError || !activeUser) {
+      console.warn('[Layout] [/dashboard] getUser() failed. Attempting getSession() fallback...')
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+      
+      if (sessionData?.session?.user) {
+        console.log('[Layout] [/dashboard] getSession() rescued the user context:', sessionData.session.user.email)
+        activeUser = sessionData.session.user
+      } else {
+        console.error('[Layout] [/dashboard] Both getUser() and getSession() failed. Redirecting.', sessionError?.message || 'No Session')
+        return <RedirectToLogin />
+      }
     }
 
     // 2. Static Shell for Test Mode
     return (
       <DashboardShell 
-        user={user} 
+        user={activeUser} 
         organizations={[]} 
         currentOrgId=""
       >
